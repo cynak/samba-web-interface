@@ -97,11 +97,12 @@ def add_user():
 def change_password():
     if request.method == "POST":
         username = request.form.get("username")
+        email = request.form.get("email")
         password = request.form.get("password")
         confirm_password = request.form.get("confirm_password")
 
-        if not username or not password:
-            flash("Username and password are required", "error")
+        if not username or not email or not password:
+            flash("Username, email, and password are required", "error")
             return redirect(url_for("change_password"))
 
         if password != confirm_password:
@@ -109,6 +110,12 @@ def change_password():
             return redirect(url_for("change_password"))
 
         try:
+            # Verify the email matches the user's stored email
+            current_email = run_command(["sudo", "getent", "passwd", username]).split(":")[4]
+            if current_email.strip() != email.strip():
+                flash("The provided email does not match the system's records", "error")
+                return redirect(url_for("change_password"))
+
             # Change the system account password
             run_command(
                 ["sudo", "passwd", username],
