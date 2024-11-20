@@ -73,15 +73,16 @@ def add_user():
             # Set the full name for the user
             run_command(["sudo", "usermod", "-c", f"{first_name} {last_name}", username])
 
+            #set the email address for the user
+            run_command(["sudo", "usermod", "-c", f"{email}", username])
+
             # Set the Samba password
             run_command(
                 ["sudo", "smbpasswd", "-a", username],
                 input_text=f"{password}\n{password}\n"
             )
 
-            # Log the email (optional)
-            with open("/etc/samba/user_emails.txt", "a") as f:
-                f.write(f"{username},{email}\n")
+
 
             flash(f"User {username} added successfully!", "success")
         except RuntimeError as e:
