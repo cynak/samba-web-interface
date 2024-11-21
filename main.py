@@ -91,7 +91,6 @@ def add_user():
         return redirect(url_for("home"))
 
     return render_template("add_user.html")
-
 # Route for changing the password
 @app.route("/change_password", methods=["GET", "POST"])
 def change_password():
@@ -101,8 +100,8 @@ def change_password():
         password = request.form.get("password")
         confirm_password = request.form.get("confirm_password")
 
-        if not username or not email or not password:
-            flash("Username, email, and password are required", "error")
+        if not username or not password:
+            flash("Username and password are required", "error")
             return redirect(url_for("change_password"))
 
         if password != confirm_password:
@@ -110,9 +109,13 @@ def change_password():
             return redirect(url_for("change_password"))
 
         try:
-            # Verify the email matches the user's stored email
-            current_email = run_command(["sudo", "getent", "passwd", username]).split(":")[4]
-            if current_email.strip() != email.strip():
+            # Get current email from the system
+            current_email = run_command(["sudo", "getent", "passwd", username]).split(":")[4].strip()
+
+            # If email is not set or mismatches, flash a warning
+            if not current_email or current_email.lower() == "n/a":
+                current_email = None  # Email not set
+            elif current_email.strip() != email.strip():
                 flash("The provided email does not match the system's records", "error")
                 return redirect(url_for("change_password"))
 
@@ -129,12 +132,39 @@ def change_password():
             )
 
             flash(f"Password for {username} updated successfully!", "success")
+
+            # Prompt to add email if it's not set
+            if not current_email:
+                flash("Email not set for this user. Please add an email address.", "warning")
+                return redirect(url_for("add_email", username=username))
+
         except RuntimeError as e:
             flash(f"Error: {e}", "error")
 
         return redirect(url_for("home"))
 
     return render_template("change_password.html")
+
+# Route for adding an email to an existing user
+@app.route("/add_email/<username>", methods=["GET", "POST"])
+def add_email(username):
+    if request.method == "POST":
+        email = request.form.get("email")
+
+        if not email:
+            flash("Email is required", "error")
+            return redirect(url_for("add_email", username=username))
+
+        try:
+            # Update the user's comment field with the email
+            run_command(["sudo", "usermod", "-c", f"{email}", username])
+            flash(f"Email added for user {username} successfully!", "success")
+        except RuntimeError as e:
+            flash(f"Error: {e}", "error")
+
+        return redirect(url_for("home"))
+
+    return render_template("add_email.html", username=username)
 
 if __name__ == "__main__":
     hostname = get_hostname()
