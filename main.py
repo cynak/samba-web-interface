@@ -3,6 +3,7 @@ from flask import Flask, jsonify, render_template, request, redirect, url_for, f
 import re
 from psutil import disk_usage, disk_io_counters, net_io_counters
 from time import time
+from collections import deque
 app = Flask(__name__)
 app.secret_key = 'your-secret-key'  # Replace with a strong secret key for sessions
 
@@ -11,48 +12,50 @@ app.secret_key = 'your-secret-key'  # Replace with a strong secret key for sessi
 # Utility function to run system commands
 import re
 # Function to fetch system metrics
-previous_disk_io = disk_io_counters()
-previous_net_io = net_io_counters()
-previous_time = time()
+disk_io_history = deque(maxlen=60)
+net_io_history = deque(maxlen=60)
+
+# Store the last I/O counters for rate calculation
+last_disk_io = disk_io_counters()
+last_net_io = net_io_counters()
+last_time = time.time()
 
 def get_system_metrics():
-    global previous_disk_io, previous_net_io, previous_time
+    global last_disk_io, last_net_io, last_time
 
-    # Disk usage
-    p_disk_usage = disk_usage('/')
-    total_storage = p_disk_usage.total // (1024 ** 3)  # Convert to GB
-    used_storage = p_disk_usage.used // (1024 ** 3)
-    free_storage = p_disk_usage.free // (1024 ** 3)
-
-    # Current time
-    current_time = time()
-    elapsed_time = current_time - previous_time
+    # Calculate elapsed time
+    current_time = time.time()
+    elapsed_time = current_time - last_time
     if elapsed_time == 0:  # Avoid division by zero
         elapsed_time = 1
 
-    # Disk I/O activity
+    # Current I/O counters
     current_disk_io = disk_io_counters()
-    read_bytes_per_sec = (current_disk_io.read_bytes - previous_disk_io.read_bytes) / (1024 ** 2) / elapsed_time  # MB/s
-    write_bytes_per_sec = (current_disk_io.write_bytes - previous_disk_io.write_bytes) / (1024 ** 2) / elapsed_time  # MB/s
-
-    # Network activity
     current_net_io = net_io_counters()
-    bytes_sent_per_sec = (current_net_io.bytes_sent - previous_net_io.bytes_sent) / (1024 ** 2) / elapsed_time  # MB/s
-    bytes_recv_per_sec = (current_net_io.bytes_recv - previous_net_io.bytes_recv) / (1024 ** 2) / elapsed_time  # MB/s
 
-    # Update previous values
-    previous_disk_io = current_disk_io
-    previous_net_io = current_net_io
-    previous_time = current_time
+    # Calculate rates
+    read_bytes_per_sec = (current_disk_io.read_bytes - last_disk_io.read_bytes) / (1024 ** 2) / elapsed_time
+    write_bytes_per_sec = (current_disk_io.write_bytes - last_disk_io.write_bytes) / (1024 ** 2) / elapsed_time
+    bytes_sent_per_sec = (current_net_io.bytes_sent - last_net_io.bytes_sent) / (1024 ** 2) / elapsed_time
+    bytes_recv_per_sec = (current_net_io.bytes_recv - last_net_io.bytes_recv) / (1024 ** 2) / elapsed_time
 
+    # Update historical data
+    disk_io_history.append({"read": read_bytes_per_sec, "write": write_bytes_per_sec, "timestamp": current_time})
+    net_io_history.append({"sent": bytes_sent_per_sec, "received": bytes_recv_per_sec, "timestamp": current_time})
+
+    # Update last values
+    last_disk_io = current_disk_io
+    last_net_io = current_net_io
+    last_time = current_time
+
+    # Return current metrics
     return {
-        "total_storage": total_storage,
-        "used_storage": used_storage,
-        "free_storage": free_storage,
         "read_bytes_per_sec": read_bytes_per_sec,
         "write_bytes_per_sec": write_bytes_per_sec,
         "bytes_sent_per_sec": bytes_sent_per_sec,
         "bytes_recv_per_sec": bytes_recv_per_sec,
+        "disk_io_history": list(disk_io_history),
+        "net_io_history": list(net_io_history),
     }
 def is_valid_username(username):
     return re.match(r'^[a-zA-Z0-9_-]+$', username) is not None
