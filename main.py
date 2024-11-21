@@ -2,6 +2,7 @@ import subprocess
 from flask import Flask, jsonify, render_template, request, redirect, url_for, flash
 import re
 from psutil import disk_usage, disk_io_counters, net_io_counters
+from time import time
 app = Flask(__name__)
 app.secret_key = 'your-secret-key'  # Replace with a strong secret key for sessions
 
@@ -10,31 +11,48 @@ app.secret_key = 'your-secret-key'  # Replace with a strong secret key for sessi
 # Utility function to run system commands
 import re
 # Function to fetch system metrics
+previous_disk_io = disk_io_counters()
+previous_net_io = net_io_counters()
+previous_time = time()
+
 def get_system_metrics():
+    global previous_disk_io, previous_net_io, previous_time
+
     # Disk usage
     p_disk_usage = disk_usage('/')
     total_storage = p_disk_usage.total // (1024 ** 3)  # Convert to GB
     used_storage = p_disk_usage.used // (1024 ** 3)
     free_storage = p_disk_usage.free // (1024 ** 3)
-    
+
+    # Current time
+    current_time = time()
+    elapsed_time = current_time - previous_time
+    if elapsed_time == 0:  # Avoid division by zero
+        elapsed_time = 1
+
     # Disk I/O activity
-    p_disk_io = disk_io_counters()
-    read_bytes = p_disk_io.read_bytes // (1024 ** 2)  # Convert to MB
-    write_bytes = p_disk_io.write_bytes // (1024 ** 2)
-    
+    current_disk_io = disk_io_counters()
+    read_bytes_per_sec = (current_disk_io.read_bytes - previous_disk_io.read_bytes) / (1024 ** 2) / elapsed_time  # MB/s
+    write_bytes_per_sec = (current_disk_io.write_bytes - previous_disk_io.write_bytes) / (1024 ** 2) / elapsed_time  # MB/s
+
     # Network activity
-    p_net_io = net_io_counters()
-    bytes_sent = p_net_io.bytes_sent // (1024 ** 2)  # Convert to MB
-    bytes_recv = p_net_io.bytes_recv // (1024 ** 2)
-    
+    current_net_io = net_io_counters()
+    bytes_sent_per_sec = (current_net_io.bytes_sent - previous_net_io.bytes_sent) / (1024 ** 2) / elapsed_time  # MB/s
+    bytes_recv_per_sec = (current_net_io.bytes_recv - previous_net_io.bytes_recv) / (1024 ** 2) / elapsed_time  # MB/s
+
+    # Update previous values
+    previous_disk_io = current_disk_io
+    previous_net_io = current_net_io
+    previous_time = current_time
+
     return {
         "total_storage": total_storage,
         "used_storage": used_storage,
         "free_storage": free_storage,
-        "read_bytes": read_bytes,
-        "write_bytes": write_bytes,
-        "bytes_sent": bytes_sent,
-        "bytes_recv": bytes_recv,
+        "read_bytes_per_sec": read_bytes_per_sec,
+        "write_bytes_per_sec": write_bytes_per_sec,
+        "bytes_sent_per_sec": bytes_sent_per_sec,
+        "bytes_recv_per_sec": bytes_recv_per_sec,
     }
 def is_valid_username(username):
     return re.match(r'^[a-zA-Z0-9_-]+$', username) is not None
