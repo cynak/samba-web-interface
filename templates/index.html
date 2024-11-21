@@ -1,180 +1,217 @@
-{% extends "base.html" %}
-
-{% block title %}Home - Samba User Manager{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% block title %}Home - Samba User Manager{% endblock
+%} {% block content %}
 <h1>Welcome to Samba User Manager</h1>
-<h2>System: {{ hostname }}</h2>
+<h2 class="text-center">System: {{ hostname }}</h2>
 <p>Use the navigation bar above to manage Samba users.</p>
 
 <div class="form-container">
-    <h3>System Metrics</h3>
-
+  <h3 class="text-center">System Metrics</h3>
+  <div class="charts-container">
     <!-- Pie Chart for Storage Usage -->
-    <div>
-        <h4>Storage Usage</h4>
-        <canvas id="storageUsageChart"></canvas>
+    <div class="chart">
+      <h4>Storage Usage</h4>
+      <canvas id="storageUsageChart"></canvas>
     </div>
 
     <!-- Disk I/O Chart -->
-    <div>
-        <h4>Disk I/O</h4>
-        <select id="diskIORange" onchange="updateDiskIOChart()">
-            <option value="1">1 Minute</option>
-            <option value="5">5 Minutes</option>
-            <option value="60">1 Hour</option>
-            <option value="1440">1 Day</option>
-        </select>
-        <canvas id="diskIOChart"></canvas>
+    <div class="chart">
+      <h4>Disk I/O</h4>
+      <select id="diskIORange" onchange="updateDiskIOChart()">
+        <option value="1">1 Minute</option>
+        <option value="5">5 Minutes</option>
+        <option value="60">1 Hour</option>
+        <option value="1440">1 Day</option>
+      </select>
+      <canvas id="diskIOChart"></canvas>
     </div>
 
     <!-- Network I/O Chart -->
-    <div>
-        <h4>Network Activity</h4>
-        <select id="networkIORange" onchange="updateNetworkIOChart()">
-            <option value="1">1 Minute</option>
-            <option value="5">5 Minutes</option>
-            <option value="60">1 Hour</option>
-            <option value="1440">1 Day</option>
-        </select>
-        <canvas id="networkIOChart"></canvas>
+    <div class="chart">
+      <h4>Network Activity</h4>
+      <select id="networkIORange" onchange="updateNetworkIOChart()">
+        <option value="1">1 Minute</option>
+        <option value="5">5 Minutes</option>
+        <option value="60">1 Hour</option>
+        <option value="1440">1 Day</option>
+      </select>
+      <canvas id="networkIOChart"></canvas>
     </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    let storageUsageChart, diskIOChart, networkIOChart;
-    let diskIOHistory = [];
-    let networkIOHistory = [];
-    let totalStorage, usedStorage, freeStorage;
+  let storageUsageChart, diskIOChart, networkIOChart;
+  let diskIOHistory = [];
+  let networkIOHistory = [];
+  let totalStorage, usedStorage, freeStorage;
 
-    async function fetchMetrics() {
-        try {
-            const response = await fetch("/api/system_metrics");
-            const data = await response.json();
+  async function fetchMetrics() {
+    try {
+      const response = await fetch("/api/system_metrics");
+      const data = await response.json();
 
-            diskIOHistory = interpolateHistory(data.disk_io_history, parseInt(document.getElementById("diskIORange").value));
-            networkIOHistory = interpolateHistory(data.net_io_history, parseInt(document.getElementById("networkIORange").value));
-            totalStorage = data.total_storage;
-            usedStorage = data.used_storage;
-            freeStorage = data.free_storage;
+      diskIOHistory = interpolateHistory(
+        data.disk_io_history,
+        parseInt(document.getElementById("diskIORange").value)
+      );
+      networkIOHistory = interpolateHistory(
+        data.net_io_history,
+        parseInt(document.getElementById("networkIORange").value)
+      );
+      totalStorage = data.total_storage;
+      usedStorage = data.used_storage;
+      freeStorage = data.free_storage;
 
-            updateStorageUsageChart();
-            updateDiskIOChart();
-            updateNetworkIOChart();
-        } catch (error) {
-            console.error("Error fetching system metrics:", error);
-        }
+      updateStorageUsageChart();
+      updateDiskIOChart();
+      updateNetworkIOChart();
+    } catch (error) {
+      console.error("Error fetching system metrics:", error);
+    }
+  }
+
+  function interpolateHistory(history, range) {
+    const interval = (range * 60) / 60; // Determine time interval for 60 points
+    const interpolated = [];
+    const startTime = history[0]?.timestamp || 0;
+
+    for (let i = 0; i < 60; i++) {
+      const targetTime = startTime + i * interval;
+      const closest = history.reduce(
+        (prev, curr) =>
+          Math.abs(curr.timestamp - targetTime) <
+          Math.abs(prev.timestamp - targetTime)
+            ? curr
+            : prev,
+        history[0]
+      );
+      interpolated.push(closest);
     }
 
-    function interpolateHistory(history, range) {
-        const interval = (range * 60) / 60; // Determine time interval for 60 points
-        const interpolated = [];
-        const startTime = history[0]?.timestamp || 0;
+    return interpolated;
+  }
 
-        for (let i = 0; i < 60; i++) {
-            const targetTime = startTime + i * interval;
-            const closest = history.reduce((prev, curr) => Math.abs(curr.timestamp - targetTime) < Math.abs(prev.timestamp - targetTime) ? curr : prev, history[0]);
-            interpolated.push(closest);
-        }
-
-        return interpolated;
+  function updateStorageUsageChart() {
+    if (!storageUsageChart) {
+      const ctx = document.getElementById("storageUsageChart").getContext("2d");
+      storageUsageChart = new Chart(ctx, {
+        type: "pie",
+        data: {
+          labels: ["Used", "Free"],
+          datasets: [
+            {
+              data: [usedStorage, freeStorage],
+              backgroundColor: ["#ff6384", "#36a2eb"],
+            },
+          ],
+        },
+        options: {
+          plugins: {
+            title: {
+              display: true,
+              text: "Storage Usage (GB)",
+            },
+          },
+        },
+      });
+    } else {
+      storageUsageChart.data.datasets[0].data = [usedStorage, freeStorage];
+      storageUsageChart.update();
     }
+  }
 
-    function updateStorageUsageChart() {
-        if (!storageUsageChart) {
-            const ctx = document.getElementById("storageUsageChart").getContext("2d");
-            storageUsageChart = new Chart(ctx, {
-                type: "pie",
-                data: {
-                    labels: ["Used", "Free"],
-                    datasets: [{
-                        data: [usedStorage, freeStorage],
-                        backgroundColor: ["#ff6384", "#36a2eb"],
-                    }]
-                },
-                options: {
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: "Storage Usage (GB)"
-                        }
-                    }
-                }
-            });
-        } else {
-            storageUsageChart.data.datasets[0].data = [usedStorage, freeStorage];
-            storageUsageChart.update();
-        }
+  function updateDiskIOChart() {
+    const labels = diskIOHistory.map((d) =>
+      new Date(d.timestamp * 1000).toLocaleTimeString()
+    );
+    const readData = diskIOHistory.map((d) => d.read);
+    const writeData = diskIOHistory.map((d) => d.write);
+
+    if (!diskIOChart) {
+      const ctx = document.getElementById("diskIOChart").getContext("2d");
+      diskIOChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "Read (MB/s)",
+              data: readData,
+              borderColor: "#36a2eb",
+              fill: false,
+            },
+            {
+              label: "Write (MB/s)",
+              data: writeData,
+              borderColor: "#ff6384",
+              fill: false,
+            },
+          ],
+        },
+        options: {
+          plugins: {
+            title: {
+              display: true,
+              text: "Disk I/O History",
+            },
+          },
+        },
+      });
+    } else {
+      diskIOChart.data.labels = labels;
+      diskIOChart.data.datasets[0].data = readData;
+      diskIOChart.data.datasets[1].data = writeData;
+      diskIOChart.update();
     }
+  }
 
-    function updateDiskIOChart() {
-        const labels = diskIOHistory.map(d => new Date(d.timestamp * 1000).toLocaleTimeString());
-        const readData = diskIOHistory.map(d => d.read);
-        const writeData = diskIOHistory.map(d => d.write);
+  function updateNetworkIOChart() {
+    const labels = networkIOHistory.map((d) =>
+      new Date(d.timestamp * 1000).toLocaleTimeString()
+    );
+    const sentData = networkIOHistory.map((d) => d.sent);
+    const receivedData = networkIOHistory.map((d) => d.received);
 
-        if (!diskIOChart) {
-            const ctx = document.getElementById("diskIOChart").getContext("2d");
-            diskIOChart = new Chart(ctx, {
-                type: "line",
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: "Read (MB/s)", data: readData, borderColor: "#36a2eb", fill: false },
-                        { label: "Write (MB/s)", data: writeData, borderColor: "#ff6384", fill: false }
-                    ]
-                },
-                options: {
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: "Disk I/O History"
-                        }
-                    }
-                }
-            });
-        } else {
-            diskIOChart.data.labels = labels;
-            diskIOChart.data.datasets[0].data = readData;
-            diskIOChart.data.datasets[1].data = writeData;
-            diskIOChart.update();
-        }
+    if (!networkIOChart) {
+      const ctx = document.getElementById("networkIOChart").getContext("2d");
+      networkIOChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "Sent (MB/s)",
+              data: sentData,
+              borderColor: "#4bc0c0",
+              fill: false,
+            },
+            {
+              label: "Received (MB/s)",
+              data: receivedData,
+              borderColor: "#ffce56",
+              fill: false,
+            },
+          ],
+        },
+        options: {
+          plugins: {
+            title: {
+              display: true,
+              text: "Network I/O History",
+            },
+          },
+        },
+      });
+    } else {
+      networkIOChart.data.labels = labels;
+      networkIOChart.data.datasets[0].data = sentData;
+      networkIOChart.data.datasets[1].data = receivedData;
+      networkIOChart.update();
     }
+  }
 
-    function updateNetworkIOChart() {
-        const labels = networkIOHistory.map(d => new Date(d.timestamp * 1000).toLocaleTimeString());
-        const sentData = networkIOHistory.map(d => d.sent);
-        const receivedData = networkIOHistory.map(d => d.received);
-
-        if (!networkIOChart) {
-            const ctx = document.getElementById("networkIOChart").getContext("2d");
-            networkIOChart = new Chart(ctx, {
-                type: "line",
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: "Sent (MB/s)", data: sentData, borderColor: "#4bc0c0", fill: false },
-                        { label: "Received (MB/s)", data: receivedData, borderColor: "#ffce56", fill: false }
-                    ]
-                },
-                options: {
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: "Network I/O History"
-                        }
-                    }
-                }
-            });
-        } else {
-            networkIOChart.data.labels = labels;
-            networkIOChart.data.datasets[0].data = sentData;
-            networkIOChart.data.datasets[1].data = receivedData;
-            networkIOChart.update();
-        }
-    }
-
-    setInterval(fetchMetrics, 1000);
-    fetchMetrics();
+  setInterval(fetchMetrics, 1000);
+  fetchMetrics();
 </script>
 {% endblock %}
