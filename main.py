@@ -18,13 +18,13 @@ net_io_history = deque(maxlen=60)
 # Store the last I/O counters for rate calculation
 last_disk_io = disk_io_counters()
 last_net_io = net_io_counters()
-last_time = time.time()
+last_time = time()
 
 def get_system_metrics():
     global last_disk_io, last_net_io, last_time
 
     # Calculate elapsed time
-    current_time = time.time()
+    current_time = time()
     elapsed_time = current_time - last_time
     if elapsed_time == 0:  # Avoid division by zero
         elapsed_time = 1
