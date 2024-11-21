@@ -4,54 +4,127 @@
 
 {% block content %}
 <h1>Welcome to Samba User Manager</h1>
-<h2>System: {{ hostname }}</h2>
+<h2 class="text-center">System: {{ hostname }}</h2>
 <p>Use the navigation bar above to manage Samba users.</p>
 
-<h2>System Metrics (Live Updates)</h2>
-<div id="system-metrics">
-    <h3>Disk Usage</h3>
-    <ul>
-        <li>Total Storage: <span id="total_storage">Loading...</span> GB</li>
-        <li>Used Storage: <span id="used_storage">Loading...</span> GB</li>
-        <li>Free Storage: <span id="free_storage">Loading...</span> GB</li>
-    </ul>
-
-    <h3>Disk I/O</h3>
-    <ul>
-        <li>Read: <span id="read_bytes_per_sec">Loading...</span> MB/s</li>
-        <li>Write: <span id="write_bytes_per_sec">Loading...</span> MB/s</li>
-    </ul>
-
-    <h3>Network Activity</h3>
-    <ul>
-        <li>Data Sent: <span id="bytes_sent_per_sec">Loading...</span> MB/s</li>
-        <li>Data Received: <span id="bytes_recv_per_sec">Loading...</span> MB/s</li>
-    </ul>
+<div class="form-container">
+    <h3>System Metrics</h3>
+    <div>
+        <canvas id="diskUsageChart"></canvas>
+    </div>
+    <div>
+        <canvas id="diskIOChart"></canvas>
+    </div>
+    <div>
+        <canvas id="networkIOChart"></canvas>
+    </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+    let diskUsageChart, diskIOChart, networkIOChart;
+
     async function fetchMetrics() {
         try {
             const response = await fetch("/api/system_metrics");
             const data = await response.json();
 
-            // Update metrics in the DOM
-            document.getElementById("total_storage").innerText = data.total_storage;
-            document.getElementById("used_storage").innerText = data.used_storage;
-            document.getElementById("free_storage").innerText = data.free_storage;
-            document.getElementById("read_bytes_per_sec").innerText = data.read_bytes_per_sec.toFixed(2);
-            document.getElementById("write_bytes_per_sec").innerText = data.write_bytes_per_sec.toFixed(2);
-            document.getElementById("bytes_sent_per_sec").innerText = data.bytes_sent_per_sec.toFixed(2);
-            document.getElementById("bytes_recv_per_sec").innerText = data.bytes_recv_per_sec.toFixed(2);
+            // Update charts
+            updateDiskUsageChart(data);
+            updateDiskIOChart(data);
+            updateNetworkIOChart(data);
         } catch (error) {
             console.error("Error fetching system metrics:", error);
         }
     }
 
+    function updateDiskUsageChart(data) {
+        if (!diskUsageChart) {
+            const ctx = document.getElementById("diskUsageChart").getContext("2d");
+            diskUsageChart = new Chart(ctx, {
+                type: "pie",
+                data: {
+                    labels: ["Used", "Free"],
+                    datasets: [{
+                        data: [data.used_storage, data.free_storage],
+                        backgroundColor: ["#ff6384", "#36a2eb"],
+                    }]
+                },
+                options: {
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: "Disk Usage (GB)"
+                        }
+                    }
+                }
+            });
+        } else {
+            diskUsageChart.data.datasets[0].data = [data.used_storage, data.free_storage];
+            diskUsageChart.update();
+        }
+    }
+
+    function updateDiskIOChart(data) {
+        if (!diskIOChart) {
+            const ctx = document.getElementById("diskIOChart").getContext("2d");
+            diskIOChart = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: ["Read", "Write"],
+                    datasets: [{
+                        label: "MB/s",
+                        data: [data.read_bytes_per_sec, data.write_bytes_per_sec],
+                        backgroundColor: "#36a2eb",
+                        borderColor: "#36a2eb",
+                        fill: false
+                    }]
+                },
+                options: {
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: "Disk I/O (MB/s)"
+                        }
+                    }
+                }
+            });
+        } else {
+            diskIOChart.data.datasets[0].data = [data.read_bytes_per_sec, data.write_bytes_per_sec];
+            diskIOChart.update();
+        }
+    }
+
+    function updateNetworkIOChart(data) {
+        if (!networkIOChart) {
+            const ctx = document.getElementById("networkIOChart").getContext("2d");
+            networkIOChart = new Chart(ctx, {
+                type: "bar",
+                data: {
+                    labels: ["Sent", "Received"],
+                    datasets: [{
+                        label: "MB/s",
+                        data: [data.bytes_sent_per_sec, data.bytes_recv_per_sec],
+                        backgroundColor: ["#ffce56", "#4bc0c0"],
+                    }]
+                },
+                options: {
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: "Network I/O (MB/s)"
+                        }
+                    }
+                }
+            });
+        } else {
+            networkIOChart.data.datasets[0].data = [data.bytes_sent_per_sec, data.bytes_recv_per_sec];
+            networkIOChart.update();
+        }
+    }
+
     // Fetch metrics every second
     setInterval(fetchMetrics, 1000);
-
-    // Initial fetch on page load
     fetchMetrics();
 </script>
 {% endblock %}
