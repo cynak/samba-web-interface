@@ -20,6 +20,7 @@ last_disk_io = disk_io_counters()
 last_net_io = net_io_counters()
 last_time = time()
 
+
 def get_system_metrics():
     global last_disk_io, last_net_io, last_time
 
@@ -48,6 +49,12 @@ def get_system_metrics():
     last_net_io = current_net_io
     last_time = current_time
 
+    # Get disk usage
+    p_disk_usage = disk_usage('/')
+    total_storage = p_disk_usage.total / (1024 ** 3)  # Convert to GB
+    used_storage = p_disk_usage.used / (1024 ** 3)
+    free_storage = p_disk_usage.free / (1024 ** 3)
+
     # Return current metrics
     return {
         "read_bytes_per_sec": read_bytes_per_sec,
@@ -56,6 +63,9 @@ def get_system_metrics():
         "bytes_recv_per_sec": bytes_recv_per_sec,
         "disk_io_history": list(disk_io_history),
         "net_io_history": list(net_io_history),
+        "total_storage": total_storage,
+        "used_storage": used_storage,
+        "free_storage": free_storage,
     }
 def is_valid_username(username):
     return re.match(r'^[a-zA-Z0-9_-]+$', username) is not None

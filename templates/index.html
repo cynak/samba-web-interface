@@ -9,9 +9,17 @@
 
 <div class="form-container">
     <h3>System Metrics</h3>
+
+    <!-- Pie Chart for Storage Usage -->
+    <div>
+        <h4>Storage Usage</h4>
+        <canvas id="storageUsageChart"></canvas>
+    </div>
+
+    <!-- Disk I/O Chart -->
     <div>
         <h4>Disk I/O</h4>
-        <select id="diskIORange" onchange="updateDiskIOChartRange()">
+        <select id="diskIORange" onchange="updateDiskIOChart()">
             <option value="1">1 Minute</option>
             <option value="5">5 Minutes</option>
             <option value="60">1 Hour</option>
@@ -19,9 +27,11 @@
         </select>
         <canvas id="diskIOChart"></canvas>
     </div>
+
+    <!-- Network I/O Chart -->
     <div>
-        <h4>Network I/O</h4>
-        <select id="networkIORange" onchange="updateNetworkIOChartRange()">
+        <h4>Network Activity</h4>
+        <select id="networkIORange" onchange="updateNetworkIOChart()">
             <option value="1">1 Minute</option>
             <option value="5">5 Minutes</option>
             <option value="60">1 Hour</option>
@@ -33,18 +43,23 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    let diskIOChart, networkIOChart;
+    let storageUsageChart, diskIOChart, networkIOChart;
     let diskIOHistory = [];
     let networkIOHistory = [];
+    let totalStorage, usedStorage, freeStorage;
 
     async function fetchMetrics() {
         try {
             const response = await fetch("/api/system_metrics");
             const data = await response.json();
 
-            diskIOHistory = data.disk_io_history;
-            networkIOHistory = data.net_io_history;
+            diskIOHistory = interpolateHistory(data.disk_io_history, parseInt(document.getElementById("diskIORange").value));
+            networkIOHistory = interpolateHistory(data.net_io_history, parseInt(document.getElementById("networkIORange").value));
+            totalStorage = data.total_storage;
+            usedStorage = data.used_storage;
+            freeStorage = data.free_storage;
 
+            updateStorageUsageChart();
             updateDiskIOChart();
             updateNetworkIOChart();
         } catch (error) {
@@ -52,13 +67,51 @@
         }
     }
 
-    function updateDiskIOChart() {
-        const range = parseInt(document.getElementById("diskIORange").value);
-        const filteredData = diskIOHistory.slice(-range);
+    function interpolateHistory(history, range) {
+        const interval = (range * 60) / 60; // Determine time interval for 60 points
+        const interpolated = [];
+        const startTime = history[0]?.timestamp || 0;
 
-        const labels = filteredData.map(d => new Date(d.timestamp * 1000).toLocaleTimeString());
-        const readData = filteredData.map(d => d.read);
-        const writeData = filteredData.map(d => d.write);
+        for (let i = 0; i < 60; i++) {
+            const targetTime = startTime + i * interval;
+            const closest = history.reduce((prev, curr) => Math.abs(curr.timestamp - targetTime) < Math.abs(prev.timestamp - targetTime) ? curr : prev, history[0]);
+            interpolated.push(closest);
+        }
+
+        return interpolated;
+    }
+
+    function updateStorageUsageChart() {
+        if (!storageUsageChart) {
+            const ctx = document.getElementById("storageUsageChart").getContext("2d");
+            storageUsageChart = new Chart(ctx, {
+                type: "pie",
+                data: {
+                    labels: ["Used", "Free"],
+                    datasets: [{
+                        data: [usedStorage, freeStorage],
+                        backgroundColor: ["#ff6384", "#36a2eb"],
+                    }]
+                },
+                options: {
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: "Storage Usage (GB)"
+                        }
+                    }
+                }
+            });
+        } else {
+            storageUsageChart.data.datasets[0].data = [usedStorage, freeStorage];
+            storageUsageChart.update();
+        }
+    }
+
+    function updateDiskIOChart() {
+        const labels = diskIOHistory.map(d => new Date(d.timestamp * 1000).toLocaleTimeString());
+        const readData = diskIOHistory.map(d => d.read);
+        const writeData = diskIOHistory.map(d => d.write);
 
         if (!diskIOChart) {
             const ctx = document.getElementById("diskIOChart").getContext("2d");
@@ -73,11 +126,10 @@
                 },
                 options: {
                     plugins: {
-                        title: { display: true, text: "Disk I/O History" }
-                    },
-                    scales: {
-                        x: { title: { display: true, text: "Time" } },
-                        y: { title: { display: true, text: "MB/s" } }
+                        title: {
+                            display: true,
+                            text: "Disk I/O History"
+                        }
                     }
                 }
             });
@@ -90,12 +142,9 @@
     }
 
     function updateNetworkIOChart() {
-        const range = parseInt(document.getElementById("networkIORange").value);
-        const filteredData = networkIOHistory.slice(-range);
-
-        const labels = filteredData.map(d => new Date(d.timestamp * 1000).toLocaleTimeString());
-        const sentData = filteredData.map(d => d.sent);
-        const receivedData = filteredData.map(d => d.received);
+        const labels = networkIOHistory.map(d => new Date(d.timestamp * 1000).toLocaleTimeString());
+        const sentData = networkIOHistory.map(d => d.sent);
+        const receivedData = networkIOHistory.map(d => d.received);
 
         if (!networkIOChart) {
             const ctx = document.getElementById("networkIOChart").getContext("2d");
@@ -110,11 +159,10 @@
                 },
                 options: {
                     plugins: {
-                        title: { display: true, text: "Network I/O History" }
-                    },
-                    scales: {
-                        x: { title: { display: true, text: "Time" } },
-                        y: { title: { display: true, text: "MB/s" } }
+                        title: {
+                            display: true,
+                            text: "Network I/O History"
+                        }
                     }
                 }
             });
@@ -124,14 +172,6 @@
             networkIOChart.data.datasets[1].data = receivedData;
             networkIOChart.update();
         }
-    }
-
-    function updateDiskIOChartRange() {
-        updateDiskIOChart();
-    }
-
-    function updateNetworkIOChartRange() {
-        updateNetworkIOChart();
     }
 
     setInterval(fetchMetrics, 1000);
