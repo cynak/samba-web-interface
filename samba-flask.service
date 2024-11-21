@@ -9,7 +9,7 @@ StartLimitBurst=5
 StartLimitIntervalSec=10
 RestartSec=10
 User=samba-flask
-ExecStart=/opt/miniconda3/envs/samba-flask/bin/python /opt/samba-flask/samba-web-interface/run.py
+ExecStart=/opt/miniconda3/envs/samba-flask/bin/python /opt/samba-flask/samba-web-interface/main.py
 Environment=PYTHONUNBUFFERED=1
 
 [Install]
