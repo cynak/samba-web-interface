@@ -18,14 +18,14 @@
 
     <h3>Disk I/O</h3>
     <ul>
-        <li>Read: <span id="read_bytes">Loading...</span> MB</li>
-        <li>Write: <span id="write_bytes">Loading...</span> MB</li>
+        <li>Read: <span id="read_bytes_per_sec">Loading...</span> MB/s</li>
+        <li>Write: <span id="write_bytes_per_sec">Loading...</span> MB/s</li>
     </ul>
 
     <h3>Network Activity</h3>
     <ul>
-        <li>Data Sent: <span id="bytes_sent">Loading...</span> MB</li>
-        <li>Data Received: <span id="bytes_recv">Loading...</span> MB</li>
+        <li>Data Sent: <span id="bytes_sent_per_sec">Loading...</span> MB/s</li>
+        <li>Data Received: <span id="bytes_recv_per_sec">Loading...</span> MB/s</li>
     </ul>
 </div>
 
@@ -39,10 +39,10 @@
             document.getElementById("total_storage").innerText = data.total_storage;
             document.getElementById("used_storage").innerText = data.used_storage;
             document.getElementById("free_storage").innerText = data.free_storage;
-            document.getElementById("read_bytes").innerText = data.read_bytes;
-            document.getElementById("write_bytes").innerText = data.write_bytes;
-            document.getElementById("bytes_sent").innerText = data.bytes_sent;
-            document.getElementById("bytes_recv").innerText = data.bytes_recv;
+            document.getElementById("read_bytes_per_sec").innerText = data.read_bytes_per_sec.toFixed(2);
+            document.getElementById("write_bytes_per_sec").innerText = data.write_bytes_per_sec.toFixed(2);
+            document.getElementById("bytes_sent_per_sec").innerText = data.bytes_sent_per_sec.toFixed(2);
+            document.getElementById("bytes_recv_per_sec").innerText = data.bytes_recv_per_sec.toFixed(2);
         } catch (error) {
             console.error("Error fetching system metrics:", error);
         }
