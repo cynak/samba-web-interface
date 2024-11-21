@@ -1,14 +1,16 @@
 [Unit]
 Description=Samba Flask Service
 After=network.target
-StartLimitIntervalSec=0[Service]
+
+[Service]
 Type=simple
 Restart=always
 StartLimitBurst=5
 StartLimitIntervalSec=10
 RestartSec=10
 User=samba-flask
-ExecStart=/opt/miniconda3/envs/samba-flask/python /opt/samba-flask/samba-web-interface/run.py
+ExecStart=/opt/miniconda3/envs/samba-flask/bin/python /opt/samba-flask/samba-web-interface/run.py
+Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target
