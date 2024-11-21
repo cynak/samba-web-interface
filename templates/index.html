@@ -91,7 +91,6 @@
 
     return interpolated;
   }
-
   function updateStorageUsageChart() {
     if (!storageUsageChart) {
       const ctx = document.getElementById("storageUsageChart").getContext("2d");
@@ -112,10 +111,15 @@
               display: true,
               text: "Storage Usage (GB)",
             },
+            legend: {
+              display: true,
+              position: "bottom",
+            },
           },
         },
       });
     } else {
+      storageUsageChart.data.labels = ["Used", "Free"];
       storageUsageChart.data.datasets[0].data = [usedStorage, freeStorage];
       storageUsageChart.update();
     }
@@ -154,6 +158,14 @@
             title: {
               display: true,
               text: "Disk I/O History",
+            },
+            legend: {
+              display: true,
+              position: "bottom",
+            },
+            scales: {
+              x: { title: { display: true, text: "Time" } },
+              y: { title: { display: true, text: "MB/s" } },
             },
           },
         },
@@ -199,6 +211,14 @@
             title: {
               display: true,
               text: "Network I/O History",
+            },
+            legend: {
+              display: true,
+              position: "bottom",
+            },
+            scales: {
+              x: { title: { display: true, text: "Time" } },
+              y: { title: { display: true, text: "MB/s" } },
             },
           },
         },
