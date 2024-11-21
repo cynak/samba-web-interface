@@ -1,12 +1,13 @@
 mkdir /opt/samba-flask
+chmod +x ./add_samba_to_sudo.sh
+chmod +x ./add_user_to_group.sh
 #create samba-flask group
-groupadd samba-flask
 ./add_samba_to_sudo.sh
+./add_user_to_group.sh
 chmod 777 /opt/samba-flask
 chown nobody:nogroup /opt/samba-flask
 git clone https://github.com/cynak/samba-web-interface.git
 chown -R samba-flask:samba-flask /opt/samba-flask/
 cd /opt/samba-flask/samba-web-interface
-conda create -n samba-flask python==3.10 --file requirements.txt
+conda create --name samba-flask python==3.10 --file requirements.txt
 conda activate samba-flask
-python main.py
