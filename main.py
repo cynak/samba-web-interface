@@ -1,6 +1,7 @@
 import subprocess
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, jsonify, render_template, request, redirect, url_for, flash
 import re
+from psutil import disk_usage, disk_io_counters, net_io_counters
 app = Flask(__name__)
 app.secret_key = 'your-secret-key'  # Replace with a strong secret key for sessions
 
@@ -8,7 +9,33 @@ app.secret_key = 'your-secret-key'  # Replace with a strong secret key for sessi
 
 # Utility function to run system commands
 import re
-
+# Function to fetch system metrics
+def get_system_metrics():
+    # Disk usage
+    p_disk_usage = disk_usage('/')
+    total_storage = p_disk_usage.total // (1024 ** 3)  # Convert to GB
+    used_storage = p_disk_usage.used // (1024 ** 3)
+    free_storage = p_disk_usage.free // (1024 ** 3)
+    
+    # Disk I/O activity
+    p_disk_io = disk_io_counters()
+    read_bytes = p_disk_io.read_bytes // (1024 ** 2)  # Convert to MB
+    write_bytes = p_disk_io.write_bytes // (1024 ** 2)
+    
+    # Network activity
+    p_net_io = net_io_counters()
+    bytes_sent = p_net_io.bytes_sent // (1024 ** 2)  # Convert to MB
+    bytes_recv = p_net_io.bytes_recv // (1024 ** 2)
+    
+    return {
+        "total_storage": total_storage,
+        "used_storage": used_storage,
+        "free_storage": free_storage,
+        "read_bytes": read_bytes,
+        "write_bytes": write_bytes,
+        "bytes_sent": bytes_sent,
+        "bytes_recv": bytes_recv,
+    }
 def is_valid_username(username):
     return re.match(r'^[a-zA-Z0-9_-]+$', username) is not None
 
@@ -36,7 +63,9 @@ def get_hostname():
 # Route for managing Samba users
 @app.route("/", methods=["GET"])
 def home():
-    return render_template("index.html", hostname=hostname)
+    # Fetch system metrics
+    metrics = get_system_metrics()
+    return render_template("index.html", metrics=metrics)
 
 # Route for adding a new Samba user
 @app.route("/add_user", methods=["GET", "POST"])
@@ -165,6 +194,10 @@ def add_email(username):
         return redirect(url_for("home"))
 
     return render_template("add_email.html", username=username)
+@app.route("/api/system_metrics", methods=["GET"])
+def system_metrics_api():
+    metrics = get_system_metrics()
+    return jsonify(metrics)
 
 if __name__ == "__main__":
     hostname = get_hostname()
